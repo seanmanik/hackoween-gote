@@ -7,11 +7,12 @@ import requests
 from states import *
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
+import json
 
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.5)
+llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.9)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -48,7 +49,8 @@ def feedback(update, context):
 
 def submit_feedback(feedback):
     # feedback uploaded to blockchain
-    print(feedback)
+    data = { "text": feedback }
+    resp = requests.post("http://10.0.0.202:5001/feedback", json=data)
 
 def generate_policy_with_location(all_feedback, target_location):
     context = "You are a policymaking advisor in " + target_location
@@ -56,7 +58,7 @@ def generate_policy_with_location(all_feedback, target_location):
 
     In the response, use the following format EXACTLY, especially where line breaks are shown. Add an empty line between every section.
 *Policy name:*
-{insert policy name}
+{insert policy name} (borough)
 
 *Problem to solve:*
 {insert problem to solve}
@@ -64,7 +66,16 @@ def generate_policy_with_location(all_feedback, target_location):
 *Policy details:*
 {insert policy details}    
 
- 
+I just need one policy to be suggested.
+E.g.
+*Policy name:*
+Rent Stabilization for All
+
+*Problem to solve:*
+Increase access to affordable housing.
+
+*Policy details:*
+{insert policy details}  
 
     I just need one policy to be suggested.
     Here are the suggestions received:
@@ -82,7 +93,7 @@ def generate_policy(all_feedback):
     
     In the response, use the following format EXACTLY, especially where line breaks are shown. Add an empty line between every section.
 *Policy name:*
-{insert policy name}
+{insert policy name} (borough)
 
 *Problem to solve:*
 {insert problem to solve}
@@ -91,6 +102,16 @@ def generate_policy(all_feedback):
 {insert policy details}    
 
 I just need one policy to be suggested.
+E.g.
+*Policy name:*
+Rent Stabilization for All (Manhattan)
+
+*Problem to solve:*
+Increase access to affordable housing.
+
+*Policy details:*
+{insert policy details}  
+
 Here are the suggestions received:
 """
     for feedback in all_feedback:
@@ -110,49 +131,14 @@ def suggest(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="I can create a policy for you! Which area would you like it for?",
                              reply_markup=InlineKeyboardMarkup(buttons))
 def retrieve_all_feedback():
-    # retrieve all feedback from blockchain
     print("feedback retrieved")
-    feedback = ["Manhattan: High rent prices/Solution: Implement rent control policies",
-                "The Bronx: Clean the streets/Solution: Initiate regular street cleaning programs",
-                "Queens: Add more greenery/Solution: Establish more public parks and community gardens",
-                "Staten Island: Limited public transportation/Solution: Expand bus and train services",
-                "Brooklyn: Overcrowding/Solution: Develop additional housing and infrastructure",
-                "Manhattan: Noise pollution/Solution: Enforce stricter noise control regulations",
-                "The Bronx: Lack of educational resources/Solution: Invest in local schools and libraries",
-                "Queens: Traffic congestion/Solution: Promote carpooling and alternative transportation",
-                "Staten Island: Lack of recreational facilities/Solution: Build more sports complexes and community centers",
-                "Brooklyn: High crime rates/Solution: Increase community policing and security measures",
-                "Manhattan: Insufficient affordable housing/Solution: Offer incentives for affordable housing developments",
-                "The Bronx: Limited healthcare access/Solution: Establish more clinics and healthcare centers",
-                "Queens: Air pollution/Solution: Implement stricter emissions regulations",
-                "Staten Island: Inadequate waste management/Solution: Enhance recycling programs and waste disposal facilities",
-                "Brooklyn: Lack of job opportunities/Solution: Attract more businesses and industries",
-                "Manhattan: Overcrowded public transportation/Solution: Increase frequency of subway and bus services",
-                "The Bronx: Food deserts/Solution: Support local farmers' markets and community grocery stores",
-                "Queens: Lack of cultural centers/Solution: Establish more museums and cultural institutions",
-                "Staten Island: Insufficient disaster preparedness/Solution: Develop better evacuation plans and emergency services",
-                "Brooklyn: Gentrification/Solution: Promote community-led development and preservation initiatives",
-                "Manhattan: High homelessness rates/Solution: Expand homeless shelters and support services",
-                "The Bronx: Aging infrastructure/Solution: Allocate funds for repairing roads and bridges",
-                "Queens: Limited access to technology/Solution: Establish public tech hubs and libraries with internet access",
-                "Staten Island: Flood risk/Solution: Improve drainage systems and invest in flood barriers",
-                "Brooklyn: Lack of affordable childcare/Solution: Subsidize childcare and establish community childcare centers",
-                "Manhattan: Tourist congestion/Solution: Diversify tourist attractions to lessen crowd density in popular areas",
-                "The Bronx: Lack of green spaces/Solution: Create more parks and promote urban gardening",
-                "Queens: Insufficient eldercare facilities/Solution: Build more senior citizen centers and provide in-home care services",
-                "Staten Island: Inadequate public safety measures/Solution: Increase the number of fire stations and emergency response teams",
-                "Brooklyn: High cost of living/Solution: Regulate price hikes and encourage cost of living adjustments for wages",
-                "Manhattan: Insufficient bike lanes/Solution: Designate more bike lanes and promote cycling as an eco-friendly transportation alternative",
-                "The Bronx: Limited access to healthy food/Solution: Encourage the establishment of grocery stores and farmers' markets in underserved areas",
-                "Queens: Overdevelopment/Solution: Implement zoning regulations to control urban sprawl",
-                "Staten Island: Lack of affordable healthcare/Solution: Provide subsidies for healthcare facilities willing to operate in the area",
-                "Brooklyn: Inadequate public schooling resources/Solution: Increase funding for public schools and provide resources for extracurricular activities",
-                "Manhattan: Lack of mental health resources/Solution: Increase funding for mental health clinics and community outreach programs",
-                "The Bronx: Illegal dumping/Solution: Strengthen law enforcement against illegal dumping and educate the public on proper waste disposal",
-                "Queens: Inefficient public transportation/Solution: Improve public transportation routes and increase the frequency of service",
-                "Staten Island: Lack of inclusivity/Solution: Promote community outreach and inclusivity programs",
-                "Brooklyn: Air quality issues/Solution: Implement stricter regulations on industrial emissions and promote green technologies"
-                ]
+    resp = requests.get("http://10.0.0.202:5001/feedback")
+    resp_split = resp.text.split("get_messages()")[1]
+    corrected_text = resp_split.replace("{ text:", '{ "text":').replace("'", '"')
+    json_feedback = json.loads(corrected_text)
+    feedback = []
+    for k in json_feedback:
+        print(k['text'])
     return feedback
 
 def inline_query(update, context):
